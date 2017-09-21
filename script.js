@@ -1,4 +1,4 @@
-var stdout = document.getElementById("output").innerHTML;
+let stdout = document.getElementById("output").innerHTML;
 let print   = function(str) {document.getElementById("output").innerHTML += str; };
 let println = function(str) {print(str + "<br>"); };
 let clear = function(str) {document.getElementById("output").innerHTML = ""};
@@ -6,7 +6,7 @@ let clear = function(str) {document.getElementById("output").innerHTML = ""};
 // Ripple config
 let decay = 0.08;
 let dispersion = 2;
-let sink = 0.7;
+let sink = 0.5;
 
 // Set up canvas
 let canvas = document.getElementById("main");
@@ -93,7 +93,8 @@ function draw() {
 }
 
 function getShade(value) {
-  exp = 1 - Math.sqrt(1);
+  // exp = 1 - Math.sqrt(value);
+  exp = 1;
   value *= 10;
   let coarse = Math.floor((value % 16) * exp);
   let fine   = Math.floor((((value - coarse) * 10) % 16) * exp);
