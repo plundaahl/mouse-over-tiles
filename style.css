@@ -9,3 +9,19 @@ canvas.main {
   width: 100vw;
   height: 100vh;
 }
+
+input[type="range"] {
+  width: 380px;
+  display: inline-block;
+  padding: 0;
+}
+
+label {
+  display: inline-block;
+  padding: 0;
+  min-width: 100px;
+}
+
+p.output {
+  display: none;
+}

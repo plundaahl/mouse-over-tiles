@@ -3,11 +3,26 @@
 <head>
   <lang="en">
   <meta charset="utf-8">
-  <link rel="stylesheet" type="text/css" href="style.css">
+  <link rel="stylesheet" type="text/css" href="./style.css">
 </head>
 <body>
 
-  <canvas id="main" width="1000" height="1000"></canvas>
+  <canvas id="main" width="500" height="500"></canvas>
+
+  <div id="controls">
+    <label for="configTiles">Tiles</label>
+    <input type="range" class="config" id="configTiles" min="5" max="100"/><br>
+
+    <label for="configDecay">Decay</label>
+    <input type="range" class="config" id="configDecay" min="1" max="700"/><br>
+
+    <label for="configDispersion">Dispersion</label>
+    <input type="range" class="config" id="configDispersion" min="100" max="10000" value="2000"/><br>
+    
+    <label for="configSink">Sink</label>
+    <input type="range" class="config" id="configSink" min="100" max="1000"/><br>
+
+  </div>
   <p id="output"></p>
 
 
