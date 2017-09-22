@@ -1,4 +1,8 @@
-const CONFIG_SCALE = 1000;
+const CONFIG_SCALE       = 1000;
+const DEFAULT_NUM_TILES  = 15;
+const DEFAULT_DECAY      = 100;
+const DEFAULT_DISPERSION = 2000;
+const DEFAULT_SINK       = 800;
 
 let decay;
 let dispersion;
@@ -8,7 +12,17 @@ let context;
 let tileW;
 let tileH;
 
-// INITIALIZE. Called before the main app loop begins.
+// Nests all repeated animation functions
+function mainLoop () {
+  setTimeout(function (){
+    calculateTileDimensions();
+    decayTiles();
+    drawTiles();
+    mainLoop();
+  }, 50);
+}
+
+// Called before the main app loop begins.
 function init () {
   attachListeners();
   initGuiDefaults();
@@ -20,22 +34,12 @@ function init () {
   context = canvas.getContext("2d");
 }
 
-// MAIN LOOP. Performs repeated drawing and ripple calculations.
-function mainLoop () {
-  setTimeout(function (){
-    calculateTileDimensions();
-    decayTiles();
-    drawTiles();
-    mainLoop();
-  }, 50);
-}
-
-// GUI DEFAULTS. Set default GUI values.
+// Set default GUI values.
 function initGuiDefaults() {
-  document.getElementById("configTiles").value      = 15;
-  document.getElementById("configDecay").value      = 100;
-  document.getElementById("configDispersion").value = 2000;
-  document.getElementById("configSink").value       = 800;
+  document.getElementById("configTiles").value      = DEFAULT_NUM_TILES;
+  document.getElementById("configDecay").value      = DEFAULT_DECAY;
+  document.getElementById("configDispersion").value = DEFAULT_DISPERSION;
+  document.getElementById("configSink").value       = DEFAULT_SINK;
 }
 
 // Configures variables that scale physics calculations.
@@ -45,19 +49,19 @@ function configurePhysics() {
   sink       = document.getElementById("configSink").value       / CONFIG_SCALE;
 }
 
-// Calculates the width and height of the tiles
-function calculateTileDimensions() {
-  tileW  = canvas.width / tiles.length;
-  tileH  = canvas.height / tiles[0].length;
-}
-
-// ATTACH EVENT LISTENERS
+// Adds event listeners to DOM elements
 function attachListeners() {
   document.getElementById("main").onmousemove          = disturbTiles;
   document.getElementById("configTiles").oninput       = buildTiles;
   document.getElementById("configDecay").oninput       = configurePhysics;
   document.getElementById("configDispersion").oninput  = configurePhysics;
   document.getElementById("configSink").oninput        = configurePhysics;
+}
+
+// Calculates the width and height of the tiles
+function calculateTileDimensions() {
+  tileW  = canvas.width / tiles.length;
+  tileH  = canvas.height / tiles[0].length;
 }
 
 // Redraws the canvas
@@ -142,11 +146,10 @@ function getColor(value) {
       return hex.length == 1 ? "0" + hex : hex;
   }
 
-  function rgbToHex(r, g, b) {
-      return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-  }
-
-  return rgbToHex(value, (value / 3) + 170, value);
+  // Return color code as hex string
+  return "#" + componentToHex( value )
+             + componentToHex( value / 3 + 170 )
+             + componentToHex( value );
 }
 
 // Updates tiles in response to mouse movement.
