@@ -1,21 +1,19 @@
-const STDOUT      = document.getElementById("output").innerHTML;
 const CONFIG_SCALE = 1000;
-let print   = function(str) {document.getElementById("output").innerHTML += str; };
-let println = function(str) {print(str + "<br>"); };
-let clear = function(str) {document.getElementById("output").innerHTML = ""};
 
 let decay;
 let dispersion;
 let sink;
 let canvas;
 let context;
+let tileW;
+let tileH;
 
 // INITIALIZE. Called before the main app loop begins.
 function init () {
   attachListeners();
-  initGui();
+  initGuiDefaults();
   configurePhysics();
-  tileBuildListener();
+  buildTiles();
 
   // Set up canvas
   canvas = document.getElementById("main");
@@ -25,39 +23,19 @@ function init () {
 // MAIN LOOP. Performs repeated drawing and ripple calculations.
 function mainLoop () {
   setTimeout(function (){
-
-    tileDecay();
-    draw();
-
+    calculateTileDimensions();
+    decayTiles();
+    drawTiles();
     mainLoop();
   }, 50);
 }
 
-// ATTACH EVENT LISTENERS
-function attachListeners() {
-  document.getElementById("main").onmousemove          = mouseMoveListener;
-  document.getElementById("configTiles").oninput       = tileBuildListener;
-  document.getElementById("configDecay").oninput       = configurePhysics;
-  document.getElementById("configDispersion").oninput  = configurePhysics;
-  document.getElementById("configSink").oninput        = configurePhysics;
-}
-
-// Updates tiles in response to mouse movement.
-function mouseMoveListener(event){
-  let tileW = canvas.width  / tiles.length;
-  let tileH = canvas.height / tiles[0].length;
-  tiles[Math.floor(event.x / tileW)][Math.floor(event.y / tileH)] = 1;
-}
-
-function tileBuildListener(){
-  let numberOfTiles = document.getElementById("configTiles").value;
-  buildTiles(numberOfTiles,numberOfTiles);
-}
-
-function initGui() {
-  document.getElementById("configDecay").value      += 0;
-  document.getElementById("configDispersion").value += 0;
-  document.getElementById("configSink").value       += 0;
+// GUI DEFAULTS. Set default GUI values.
+function initGuiDefaults() {
+  document.getElementById("configTiles").value      = 15;
+  document.getElementById("configDecay").value      = 100;
+  document.getElementById("configDispersion").value = 2000;
+  document.getElementById("configSink").value       = 800;
 }
 
 // Configures variables that scale physics calculations.
@@ -67,23 +45,50 @@ function configurePhysics() {
   sink       = document.getElementById("configSink").value       / CONFIG_SCALE;
 }
 
-// Assembles 2d array of tiles.
-function buildTiles(width, height) {
-  tiles = [];
+// Calculates the width and height of the tiles
+function calculateTileDimensions() {
+  tileW  = canvas.width / tiles.length;
+  tileH  = canvas.height / tiles[0].length;
+}
 
-  for (i = 0; i < width; i++) {
-    tiles[i] = [];
-    for (j = 0; j < height; j++) {
-      tiles[i][j] = 0;
+// ATTACH EVENT LISTENERS
+function attachListeners() {
+  document.getElementById("main").onmousemove          = disturbTiles;
+  document.getElementById("configTiles").oninput       = buildTiles;
+  document.getElementById("configDecay").oninput       = configurePhysics;
+  document.getElementById("configDispersion").oninput  = configurePhysics;
+  document.getElementById("configSink").oninput        = configurePhysics;
+}
+
+// Redraws the canvas
+function drawTiles() {
+  // Clear the canvas
+  context.clearRect(0,0,canvas.width,canvas.height);
+
+  // Loop through each tile
+  for (x = 0; x < tiles.length; x++) {
+    for (y = 0; y < tiles[x].length; y++) {
+
+      // Calculate necessary values for the current
+      let tileValue  = tiles[x][y];
+      let sinkScale  = tileValue * tileW * sink;
+      let sinkOffset = sinkScale / 2;
+      let tileX      = x * tileW + sinkOffset;
+      let tileY      = y * tileW + sinkOffset;
+      let tileWidth  = tileW - sinkScale - 1;
+      let tileHeight = tileH - sinkScale - 1;
+
+      // Draw the current tile
+      context.beginPath   ();
+      context.fillStyle = getColor(tileValue);
+      context.rect        (tileX, tileY, tileWidth, tileHeight);
+      context.fill        ();
     }
   }
 }
 
 // Iterates through tiles and applies decay and ripple effects.
-function tileDecay() {
-  let tileW = canvas.width / tiles.length;
-  let tileH = canvas.height / tiles[0].length;
-
+function decayTiles() {
   for (i = 0; i < tiles.length; i++) {
     for (j = 0; j < tiles[i].length; j++) {
       // Decay the tile's value
@@ -91,53 +96,37 @@ function tileDecay() {
         let decayAmt = tiles[i][j] * decay;
         tiles[i][j] -= decayAmt;
 
-        tileRipple(i, j, decayAmt);
+        rippleTiles(i, j, decayAmt);
       }
     }
   }
 }
 
 // Ripple to neighbors
-function tileRipple(srcX, srcY, decayAmt) {
-  for (k = srcX-1; k <= srcX+1; k++){
-      for (l = srcY-1; l <= srcY+1; l++){
+function rippleTiles(srcX, srcY, decayAmt) {
 
-        if (l * k < 0
-         || k >= tiles.length
-         || l >= tiles[0].length
-         || (k == srcX && l == srcY)) {
-        } else {
-          let difference = tiles[k][l] - tiles[srcX][srcY];
+  // Determines whether or not a target tile is within bounds
+  function isInBounds(x, y, centerX, centerY, length) {
+    return (y >= 0 && x >= 0                    // Is the target within bounds?
+        &&  x < length                          // ""
+        &&  y < length                          // ""
+        && (x != centerX && y != centerY));      // Is target != src?
+  }
 
-          if (difference < 0) {
-            tiles[k][l] += decayAmt * (difference * -1 ) * dispersion;
-            tiles[k][l] %= 1;
-          }
+  // Loop through all tiles within 1 space of current tile
+  for (destX = srcX-1; destX <= srcX+1; destX++){
+    for (destY = srcY-1; destY <= srcY+1; destY++){
 
+      // If tile is within bounds...
+      if (isInBounds(destX, destY, srcX, srcY, tiles.length)) {
+
+        // Apply ripple
+        let difference = tiles[destX][destY] - tiles[srcX][srcY];
+        if (difference < 0) {
+          tiles[destX][destY] += decayAmt * (difference * -1 ) * dispersion;
+          tiles[destX][destY] %= 1;
         }
       }
-    // }
-  }
-}
-
-// Redraws the canvas
-function draw() {
-  let tileW = canvas.width / tiles.length;
-  let tileH = canvas.height / tiles[0].length;
-
-  context.clearRect(0,0,canvas.width,canvas.height);
-  for (i = 0; i < tiles.length; i++) {
-    for (j = 0; j < tiles[i].length; j++) {
-      context.beginPath();
-      context.fillStyle = getColor(tiles[i][j]);
-      context.rect(
-        (tileW * i) + (tileW * tiles[i][j] * sink / 2)
-       ,(tileH * j) + (tileH * tiles[i][j] * sink / 2)
-       ,tileW - (tileW * tiles[i][j] * sink) - 1
-       ,tileH - (tileH * tiles[i][j] * sink) - 1
-       );
-      context.fill();
-
 
     }
   }
@@ -145,19 +134,45 @@ function draw() {
 
 // Returns a color code in hex string format.
 function getColor(value) {
-  exp = 1;
-  value *= 10;
-  let coarse = Math.floor((value % 16) * exp);
-  let fine   = Math.floor((((value - coarse) * 10) % 16) * exp);
-  return ("#" + (coarse).toString(16)
-         + "" + (fine).toString(16)
-         + "CC"
-         // + "" + (10 + Math.round(coarse/2)).toString(16)
-         // + "" + (10 + Math.round(fine/2)).toString(16)
-         + "" + (coarse).toString(16)
-         + "" + (fine).toString(16));
+  value = Math.sqrt(value) * 255;
+
+  // Small RGB-hex string converter taken from Stack Overflow 
+  function componentToHex(c) {
+      let hex = (Math.round(c)).toString(16);
+      return hex.length == 1 ? "0" + hex : hex;
+  }
+
+  function rgbToHex(r, g, b) {
+      return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+  }
+
+  return rgbToHex(value, (value / 3) + 170, value);
 }
 
+// Updates tiles in response to mouse movement.
+function disturbTiles(event){
+  // Get the X and Y indicies for the tile under the mouse cursor
+  let x = Math.floor(event.x * tiles.length    / canvas.width);
+  let y = Math.floor(event.y * tiles[0].length / canvas.height);
+
+  // Update that tile.
+  tiles[x][y] = 1;
+}
+
+// Initializes and rebuilds the 2d array of tiles
+function buildTiles(){
+  // Reference the GUI to find out how many tiles we need
+  let numTiles = document.getElementById("configTiles").value;
+  tiles = [];
+
+  // Process each element in array
+  for (i = 0; i < numTiles; i++) { 
+    tiles[i] = [];               // Reset second dimension of tiles array.
+    for (j = 0; j < numTiles; j++) {
+      tiles[i][j] = 0;
+    }
+  }
+}
 
 init();
 mainLoop();
